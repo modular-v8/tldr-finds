@@ -1,0 +1,51 @@
+name: Suggest a find
+description: Suggest a free tool, repo or resource for the TLDR finds database
+title: "Find: "
+labels: ["new-find"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Name
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Link
+      placeholder: https://
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What is it, and how does it help someone building a product?
+      description: One or two sentences. Mention the license or that it is free.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category (best guess)
+      options:
+        - design-inspiration
+        - ui-components
+        - design-systems
+        - data-sql
+        - agent-skills
+        - agent-harness
+        - ai-models-research
+        - productivity
+        - other
+  - type: input
+    id: source
+    attributes:
+      label: Where did you see it?
+      description: Ideally the TLDR newsletter issue (https://tldr.tech) and date.
+  - type: checkboxes
+    id: free
+    attributes:
+      label: Checks
+      options:
+        - label: It is free to use (not a paid-only product)
+          required: true

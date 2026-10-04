@@ -1,0 +1,18 @@
+# local session notes
+.decisions/
+
+# build output
+dist/
+
+# python
+__pycache__/
+*.pyc
+
+# superseded by tldr-finds.db; kept locally as a backup only
+TLDR-Agent-Finds.original.md
+
+# sqlite sidecar / temp files
+*.db-journal
+*.db-wal
+*.db-shm
+*.tmp
