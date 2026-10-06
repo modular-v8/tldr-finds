@@ -1,5 +1,6 @@
 # local session notes
 .decisions/
+.serena/
 
 # build output
 dist/
@@ -7,9 +8,6 @@ dist/
 # python
 __pycache__/
 *.pyc
-
-# superseded by tldr-finds.db; kept locally as a backup only
-TLDR-Agent-Finds.original.md
 
 # sqlite sidecar / temp files
 *.db-journal
