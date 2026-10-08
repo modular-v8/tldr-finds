@@ -78,10 +78,23 @@ def guess_category(name, desc):
     return "other"
 
 
-def connect():
-    con = sqlite3.connect(DB)
+BUSY_SECONDS = 30  # wait this long for another process (e.g. a scheduled run) to release the write lock
+
+
+def connect(readonly=False):
+    """Read-only commands open the file read-only and never touch the schema; writers wait for locks."""
+    if readonly and DB.is_file():
+        con = sqlite3.connect(f"{DB.as_uri()}?mode=ro", uri=True, timeout=BUSY_SECONDS)
+    else:
+        con = sqlite3.connect(DB, timeout=BUSY_SECONDS)
+        # PERSIST reuses the journal file instead of deleting it at every commit. Sandboxed scheduled runs that may
+        # create/write files in this folder but not delete them otherwise fail every write with "disk I/O error".
+        # Not remembered by the file, so it is set on each writer connection.
+        con.execute("PRAGMA journal_mode = PERSIST")
+        have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE name IN ('finds','finds_fts','finds_au')")}
+        if len(have) < 3:  # fresh or partial database: create what is missing (all statements are IF NOT EXISTS)
+            con.executescript(SCHEMA)
     con.row_factory = sqlite3.Row
-    con.executescript(SCHEMA)
     return con
 
 
@@ -143,7 +156,7 @@ def _print(rows):
 
 
 def cmd_search(args):
-    con = connect()
+    con = connect(readonly=True)
     where, params = ["finds_fts MATCH ?"], [args.query]
     _filters(args, where, params)
     sql = ("SELECT f.* FROM finds_fts JOIN finds f ON f.id = finds_fts.rowid "
@@ -152,7 +165,7 @@ def cmd_search(args):
 
 
 def cmd_list(args):
-    con = connect()
+    con = connect(readonly=True)
     where, params = ["1=1"], []
     _filters(args, where, params)
     sql = f"SELECT f.* FROM finds f WHERE {' AND '.join(where)} ORDER BY date_found DESC, id DESC LIMIT ?"
@@ -160,7 +173,7 @@ def cmd_list(args):
 
 
 def cmd_stats(args):
-    con = connect()
+    con = connect(readonly=True)
     total, first, last = con.execute("SELECT count(*),min(date_found),max(date_found) FROM finds").fetchone()
     print(f"{total} finds, {first} to {last}\n\nby category:")
     for r in con.execute("SELECT category,count(*) c FROM finds GROUP BY 1 ORDER BY c DESC"):
@@ -171,14 +184,14 @@ def cmd_stats(args):
 
 
 def cmd_sql(args):
-    con = connect()
+    con = connect(readonly=True)
     con.execute("PRAGMA query_only = ON")
     for r in con.execute(args.query).fetchall():
         print(" | ".join(str(v) for v in tuple(r)))
 
 
 def cmd_export(args):
-    con = connect()
+    con = connect(readonly=True)
     out = [HEADER, "| Date Found | Name | What It Is / How It Helps | Link |", "|---|---|---|---|"]
     for r in con.execute("SELECT * FROM finds ORDER BY date_found, id"):
         out.append(f"| {r['date_found']} | {r['name']} | {r['description']} | {r['url']} |")
@@ -210,7 +223,15 @@ def main():
     s = sub.add_parser("sql"); s.add_argument("query"); s.set_defaults(fn=cmd_sql)
 
     args = p.parse_args()
-    args.fn(args)
+    try:
+        args.fn(args)
+    except sqlite3.OperationalError as e:
+        sys.exit(f"database error: {e}\n"
+                 f"  - 'locked': another process is writing {DB.name}; retry later or avoid overlapping runs\n"
+                 "  - 'readonly' / 'unable to open': this process cannot write the file or its folder "
+                 "(sandbox, sync client, permissions)\n"
+                 f"  - 'disk I/O error': often a sandbox that cannot delete files here; if {DB.name}-journal is left over, "
+                 "run any tldr.py command from a normal terminal so SQLite rolls it back")
 
 
 if __name__ == "__main__":
