@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Tests (snapshot / Markdown sync checks are skipped: those files are not in the repo)
+      - name: Tests (the snapshot and Markdown sync checks skip themselves because those files are not in the repo)
         run: python -m unittest discover -s tests -v
       - name: Build skill zip
         run: python build_skill.py --zip
