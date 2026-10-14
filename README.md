@@ -3,7 +3,8 @@
 A fast, local lookup of **free tools, libraries, repos and resources for people building web and AI products**,
 as an agent skill any coding agent can use. When your agent needs "a free color palette tool" or "something for
 DuckDB", it queries a bundled, read-only SQLite database instead of guessing from memory, and gets a few ranked,
-linked results back in milliseconds. No network, no API key, no server.
+linked results back in milliseconds. No API key, no server, and it works offline. Once a day it quietly picks up the
+latest finds from GitHub (about 150 KB, only when something changed), so you never have to reinstall for new entries.
 
 All finds are curated from the [TLDR newsletters](https://tldr.tech). Every result carries that credit.
 This project is independent and unaffiliated with TLDR.
@@ -33,6 +34,22 @@ Requires Python 3 (standard library only). No Python? The skill documents a plai
 **Agents without skills support**: copy the folder anywhere and paste [AGENTS.snippet.md](AGENTS.snippet.md) into your
 `AGENTS.md` (or equivalent), replacing `<path-to>` with where you put it.
 
+Installed an earlier version (0.1.x)? Reinstall once to get the daily auto-update; after that only the data changes.
+
+## Updates and network use
+
+The skill ships with a snapshot and refreshes it by itself: at most once a day a query fetches a small
+`manifest.json` from this repo's `db-latest` release and, only if the finds changed, downloads the new database into a
+per-user cache folder (`%LOCALAPPDATA%\tldr-finds` on Windows, `~/.cache/tldr-finds` elsewhere). Queries use whichever
+copy (cache or bundled) is newest and never wait on the network: if it is blocked or slow, the check fails silently
+and the best local copy is used. Downloads are checked (sha256, size, SQLite integrity) before they replace anything.
+
+- `python -S scripts/find.py update` checks right now and tells you what happened.
+- `TLDR_FINDS_OFFLINE=1` turns all network checks off. In a sandbox, allow `github.com` and
+  `release-assets.githubusercontent.com` if you want updates.
+- `TLDR_FINDS_CACHE_DIR` moves the cache; `TLDR_FINDS_DB` queries one specific file (and disables updates).
+- The skill only ever reads databases; its one write is the cache folder.
+
 ## Use
 
 ```
@@ -40,6 +57,7 @@ python -S scripts/find.py search "react components" --category ui-components --l
 python -S scripts/find.py search "duckdb" --since 2026-09-01 --format json
 python -S scripts/find.py recent --limit 10
 python -S scripts/find.py categories
+python -S scripts/find.py update
 ```
 
 Categories: design-inspiration, ui-components, design-systems, data-sql, agent-skills, agent-harness,
@@ -59,24 +77,25 @@ to substring matching when nothing matches.
 
 ```
 skill/tldr-finds/     the installable skill: SKILL.md, scripts/find.py, data/tldr-finds.db (snapshot)
-tldr-finds.db         source of truth (SQLite + FTS5). Edit via tldr.py, never by hand.
 tldr.py               maintainer CLI: add / search / list / stats / export / sql
-build_skill.py        refresh the skill's snapshot, optionally build dist/tldr-finds.skill
-TLDR-Agent-Finds.md   generated human-readable list of every find
+build_skill.py        refresh the skill's snapshot, --zip builds dist/tldr-finds.skill, --publish uploads the database
+tldr-finds.db         (maintainer's machine only, not in git) source of truth. Edit via tldr.py, never by hand.
+TLDR-Agent-Finds.md   (maintainer's machine only, not in git) generated human-readable list of every find
 AGENTS.snippet.md     paste-in for agents without skills support
 tests/                smoke tests (python -m unittest discover -s tests)
-spec.md               spec, plan and task status
+specs/                spec and plan per phase (phase-1-local-skill, phase-2-hosted-database)
 ```
 
 ## Maintaining
 
 ```
 python tldr.py add 2026-10-05 "Name" "https://url" "What it is / how it helps" [--category C]
-python build_skill.py
+python build_skill.py --publish    # daily: upload the database to the db-latest release (no commits)
+python build_skill.py              # per release: refresh the bundled snapshot
 python -m unittest discover -s tests
 ```
 
-Duplicate URLs are rejected; back up by copying `tldr-finds.db`. Release steps are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Duplicate URLs are rejected; back up by copying `tldr-finds.db` (it is not in git). Release steps are in [CONTRIBUTING.md](CONTRIBUTING.md).
 Want to suggest a tool? Open an issue with the **Suggest a find** template.
 
 ## License

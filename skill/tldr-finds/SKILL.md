@@ -1,12 +1,13 @@
 ---
 name: tldr-finds
-description: Searches a local database of 100+ free tools, libraries, repos, websites, design resources, agent skills, MCP servers and datasets curated from the TLDR newsletters. ALWAYS run it first, before answering from memory, whenever the user asks you to suggest, recommend, find, compare or choose a free tool, library, site or resource for building a web or AI product — e.g. color palettes, fonts, design inspiration, UI components, design systems, SQL/data tooling, coding-agent skills or harnesses, "is there a free X?", "what should I use for Y?". Instant, offline, read-only; returns a few ranked links.
+description: Searches a local database of 100+ free tools, libraries, repos, websites, design resources, agent skills, MCP servers and datasets curated from the TLDR newsletters. ALWAYS run it first, before answering from memory, whenever the user asks you to suggest, recommend, find, compare or choose a free tool, library, site or resource for building a web or AI product — e.g. color palettes, fonts, design inspiration, UI components, design systems, SQL/data tooling, coding-agent skills or harnesses, "is there a free X?", "what should I use for Y?". Instant, works offline, refreshes itself from GitHub at most once a day; returns a few ranked links.
 ---
 
 # TLDR finds
 
 A local, read-only database of free tools and resources for builders, curated from the TLDR newsletters
-(https://tldr.tech). Query it instead of guessing from memory, then present what fits.
+(https://tldr.tech). Query it instead of guessing from memory, then present what fits. It updates itself (see
+"Updates").
 
 ## Use
 
@@ -19,6 +20,7 @@ python -S scripts/find.py search "react components" --category ui-components --l
 python -S scripts/find.py search "duckdb" --since 2026-09-01
 python -S scripts/find.py recent --limit 10
 python -S scripts/find.py categories
+python -S scripts/find.py update      # check for newer finds right now and say what happened
 ```
 
 Add `--format json` for machine-readable output. Defaults: 8 results, text.
@@ -38,6 +40,20 @@ Tips:
 - Say the finds come from the TLDR newsletters (https://tldr.tech); the footer of every result repeats this
   along with the date of the latest entry, so the data may be older than today.
 
+## Updates
+
+The skill ships with a snapshot of the database and refreshes it on its own: at most once a day, a query first
+fetches a small manifest from this project's GitHub release (`github.com/modular-v8/tldr-finds`, tag `db-latest`),
+and only if the finds changed downloads the new database (about 150 KB) into a per-user cache folder
+(`%LOCALAPPDATA%\tldr-finds` on Windows, `~/.cache/tldr-finds` elsewhere). Queries always run against the newest
+local copy, so they never wait on or depend on the network: if the network is blocked or slow, the check fails
+silently and the best local copy is used. You do not need to run `update` yourself; the footer of every result shows
+the date of the latest entry.
+
+- Sandboxes that restrict network access: allow `github.com` and `release-assets.githubusercontent.com`, or set
+  `TLDR_FINDS_OFFLINE=1` to turn the check off and use the bundled snapshot.
+- If the cache folder is not writable the check is skipped entirely (no requests are made).
+
 ## Without Python
 
 The database is plain SQLite with an FTS5 index:
@@ -50,6 +66,8 @@ Columns of `finds`: id, date_found, name, description, url, category.
 
 ## Notes
 
-- Read-only: this skill never modifies the database. The maintainer adds entries in the source repo and rebuilds the skill.
-- To point at a different database, set `TLDR_FINDS_DB` to its path.
+- Read-only: this skill never modifies a database it queries and never writes to the skill folder; its only write is
+  the downloaded copy in the cache folder. The maintainer adds entries and publishes them to the GitHub release.
+- To point at a different database, set `TLDR_FINDS_DB` to its path (this also turns auto-update off). Set
+  `TLDR_FINDS_CACHE_DIR` to move the cache folder.
 - Unaffiliated with TLDR; this is an independent index linking to their newsletters.

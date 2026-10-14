@@ -9,6 +9,10 @@ dist/
 __pycache__/
 *.pyc
 
+# maintainer-only data: the live database and the Markdown generated from it (published via build_skill.py --publish)
+/tldr-finds.db
+/TLDR-Agent-Finds.md
+
 # sqlite sidecar / temp files
 *.db-journal
 *.db-wal

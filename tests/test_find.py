@@ -19,6 +19,10 @@ SOURCE_LINE = "Curated from TLDR newsletters (https://tldr.tech)"
 
 sys.path.insert(0, str(ROOT))
 
+# Keep these tests hermetic: no network, and never the developer's own update cache.
+os.environ["TLDR_FINDS_OFFLINE"] = "1"
+os.environ["TLDR_FINDS_CACHE_DIR"] = os.path.join(tempfile.gettempdir(), "tldr-finds-tests-no-cache")
+
 
 def run(*args, script=FIND, env=None):
     return subprocess.run([sys.executable, str(script), *args], capture_output=True, text=True,
@@ -144,7 +148,9 @@ class SkillIsSelfContained(unittest.TestCase):
 
 
 class DataInSync(unittest.TestCase):
-    """The shipped snapshot and the generated Markdown must match the source-of-truth database."""
+    """The shipped snapshot and the generated Markdown must match the source-of-truth database.
+    The live database and the Markdown are not in the repo (they stay on the maintainer's machine), so the checks that
+    need them are skipped elsewhere, e.g. in CI."""
 
     def rows(self, path):
         con = sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)
@@ -153,6 +159,7 @@ class DataInSync(unittest.TestCase):
         finally:
             con.close()
 
+    @unittest.skipUnless(LIVE_DB.is_file(), "live database not present")
     def test_snapshot_matches_live_db(self):
         self.assertEqual(self.rows(SNAPSHOT), self.rows(LIVE_DB),
                          "skill snapshot is stale: run `python build_skill.py`")
@@ -163,6 +170,7 @@ class DataInSync(unittest.TestCase):
         con.close()
         self.assertEqual(n, fts)
 
+    @unittest.skipUnless(LIVE_DB.is_file() and (ROOT / "TLDR-Agent-Finds.md").is_file(), "live database / Markdown not present")
     def test_markdown_lists_every_find(self):
         import tldr
         md = (ROOT / "TLDR-Agent-Finds.md").read_text(encoding="utf-8")
